@@ -79,7 +79,7 @@ model departments {
   id         Int         @id @default(autoincrement())
   faculty_id Int
   name       String      @unique(map: "faculty_id, name") @db.VarChar(255)
-  hod_id     Int
+  hod_id     Int?
   created_at DateTime    @default(now()) @db.Timestamp(0)
   update_at  DateTime    @default(now()) @db.Timestamp(0)
   lecturers  lecturers[]

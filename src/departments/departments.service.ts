@@ -7,14 +7,8 @@ import { UpdateDepartmentDto } from '../departments/dto/update-department.dto';
 export class DepartmentsService {
   constructor(private readonly prisma: PrismaService) {}
   async create(data: CreateDepartmentDto) {
-    const { faculty_id, name, hod_id } = data;
-
     return this.prisma.departments.create({
-      data: {
-        faculty_id,
-        name,
-        ...(typeof hod_id === 'number' ? { hod_id } : {}), // ✅ omit if not a number
-      },
+      data,
     });
   }
   findAll(faculty_id?: number) {
