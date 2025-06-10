@@ -1,0 +1,221 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model companies {
+  id                     Int                   @id @default(autoincrement())
+  name                   String                @unique(map: "name") @db.VarChar(255)
+  address                String                @db.VarChar(255)
+  city                   String                @db.VarChar(100)
+  region                 String                @db.VarChar(100)
+  industry               String?               @db.VarChar(255)
+  contact_email          String?               @db.VarChar(255)
+  contact_phone          String?               @db.VarChar(20)
+  geofence_latitude      Decimal?              @db.Decimal(10, 8)
+  geofence_longitude     Decimal?              @db.Decimal(11, 8)
+  geofence_radius_meters Int?
+  created_at             DateTime              @default(now()) @db.Timestamp(0)
+  updated_at             DateTime?             @default(now()) @db.Timestamp(0)
+  company_supervisors    company_supervisors[]
+  internships            internships[]
+}
+
+model company_supervisors {
+  id            Int             @id
+  user_id       Int             @unique(map: "user_id")
+  company_id    Int
+  job_title     String?         @db.VarChar(100)
+  users         users           @relation(fields: [user_id], references: [id], onUpdate: Restrict, map: "company_supervisors_ibfk_1")
+  companies     companies       @relation(fields: [company_id], references: [id], onUpdate: Restrict, map: "company_supervisors_ibfk_2")
+  daily_reports daily_reports[]
+  internships   internships[]
+
+  @@index([company_id], map: "company_id")
+  @@index([user_id], map: "idx_company_supervisors_user_id")
+}
+
+model daily_reports {
+  id                          Int                   @id @default(autoincrement())
+  internship_id               Int
+  report_date                 DateTime              @db.Date
+  summary_of_work             String                @db.Text
+  submission_timestamp        DateTime              @default(now()) @db.Timestamp(0)
+  company_supervisor_feedback String?               @db.Text
+  lecturer_feedback           String?               @db.Text
+  status                      String                @default("pending_review") @db.VarChar(50)
+  approved_by_supervisor_id   Int?
+  approved_timestamp          DateTime?             @db.Timestamp(0)
+  last_update_at              DateTime              @default(now()) @db.Timestamp(0)
+  related_task_ids            String?               @db.LongText
+  internships                 internships           @relation(fields: [internship_id], references: [id], onUpdate: Restrict, map: "daily_reports_ibfk_1")
+  company_supervisors         company_supervisors?  @relation(fields: [approved_by_supervisor_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "daily_reports_ibfk_2")
+  report_attachements         report_attachements[]
+
+  @@index([approved_by_supervisor_id], map: "approved_by_supervisor_id")
+  @@index([internship_id], map: "idx_daily_reports_internship_id")
+}
+
+model daily_tasks {
+  id                 Int         @id @default(autoincrement())
+  internship_id      Int
+  task_date          DateTime    @db.Date
+  description        String      @db.Text
+  expected_outcome   String?     @db.Text
+  learning_objective String?     @db.Text
+  status             String      @default("pending") @db.VarChar(50)
+  created_at         DateTime    @default(now()) @db.Timestamp(0)
+  updated_at         DateTime    @default(now()) @db.Timestamp(0)
+  internships        internships @relation(fields: [internship_id], references: [id], onUpdate: Restrict, map: "daily_tasks_ibfk_1")
+
+  @@index([internship_id], map: "idx_daily_tasks_internship_id")
+}
+
+model departments {
+  id         Int         @id @default(autoincrement())
+  faculty_id Int
+  name       String      @unique(map: "faculty_id, name") @db.VarChar(255)
+  hod_id     Int
+  created_at DateTime    @default(now()) @db.Timestamp(0)
+  update_at  DateTime    @default(now()) @db.Timestamp(0)
+  lecturers  lecturers[]
+  students   students[]
+}
+
+model faculties {
+  id         Int         @id @default(autoincrement())
+  name       String?     @unique(map: "name") @db.VarChar(255)
+  created_at DateTime?   @default(now()) @db.Timestamp(0)
+  updated_at DateTime?   @default(now()) @db.Timestamp(0)
+  lecturers  lecturers[]
+  students   students[]
+}
+
+model feedbacks {
+  id                                  Int          @id @default(autoincrement())
+  from_user_id                        Int
+  to_user_id                          Int
+  internship_id                       Int?
+  feedback_type                       String       @db.VarChar(50)
+  content                             String       @db.Text
+  sent_at                             DateTime     @default(now()) @db.Timestamp(0)
+  is_read                             Boolean      @default(false)
+  users_feedbacks_from_user_idTousers users        @relation("feedbacks_from_user_idTousers", fields: [from_user_id], references: [id], onUpdate: Restrict, map: "feedbacks_ibfk_1")
+  users_feedbacks_to_user_idTousers   users        @relation("feedbacks_to_user_idTousers", fields: [to_user_id], references: [id], onUpdate: Restrict, map: "feedbacks_ibfk_2")
+  internships                         internships? @relation(fields: [internship_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "feedbacks_ibfk_3")
+
+  @@index([from_user_id], map: "idx_feedbacks_from_user_id")
+  @@index([to_user_id], map: "idx_feedbacks_to_user_id")
+  @@index([internship_id], map: "internship_id")
+}
+
+model internships {
+  id                    Int                  @id @default(autoincrement())
+  student_id            Int                  @unique(map: "student_id")
+  company_id            Int
+  company_supervisor_id Int
+  lecturer_id           Int?
+  start_date            DateTime             @db.Date
+  end_date              DateTime             @db.Date
+  status                String               @default("active") @db.VarChar(50)
+  created_at            DateTime             @default(now()) @db.Timestamp(0)
+  updated_at            DateTime             @default(now()) @db.Timestamp(0)
+  daily_reports         daily_reports[]
+  daily_tasks           daily_tasks[]
+  feedbacks             feedbacks[]
+  students              students             @relation(fields: [student_id], references: [id], onUpdate: Restrict, map: "internships_ibfk_1")
+  companies             companies            @relation(fields: [company_id], references: [id], onUpdate: Restrict, map: "internships_ibfk_2")
+  company_supervisors   company_supervisors  @relation(fields: [company_supervisor_id], references: [id], onUpdate: Restrict, map: "internships_ibfk_3")
+  lecturers             lecturers?           @relation(fields: [lecturer_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "internships_ibfk_4")
+  location_check_ins    location_check_ins[]
+
+  @@index([company_id], map: "company_id")
+  @@index([company_supervisor_id], map: "company_supervisor_id")
+  @@index([student_id], map: "idx_internships_student_id")
+  @@index([lecturer_id], map: "lecturer_id")
+}
+
+model lecturers {
+  id              Int           @id @default(autoincrement())
+  user_id         Int
+  staff_id_number String?       @unique(map: "staff_id_number") @db.VarChar(50)
+  faculty_id      Int
+  department_id   Int
+  region          String?       @db.VarChar(100)
+  internships     internships[]
+  users           users         @relation(fields: [user_id], references: [id], onUpdate: Restrict, map: "lecturers_ibfk_1")
+  faculties       faculties     @relation(fields: [faculty_id], references: [id], onUpdate: Restrict, map: "lecturers_ibfk_2")
+  departments     departments   @relation(fields: [department_id], references: [id], onUpdate: Restrict, map: "lecturers_ibfk_3")
+
+  @@index([department_id], map: "department_id")
+  @@index([faculty_id], map: "faculty_id")
+  @@index([user_id], map: "idx_lecturers_user_id")
+}
+
+model location_check_ins {
+  id                 Int         @id @default(autoincrement())
+  internship_id      Int
+  check_in_timestamp DateTime    @default(now()) @db.Timestamp(0)
+  latitude           Decimal     @db.Decimal(10, 8)
+  longitude          Decimal     @db.Decimal(11, 8)
+  is_within_geofence Boolean
+  device_info        String?     @db.Text
+  internships        internships @relation(fields: [internship_id], references: [id], onUpdate: Restrict, map: "location_check_ins_ibfk_1")
+
+  @@index([internship_id], map: "internship_id")
+}
+
+model report_attachements {
+  id            Int           @id
+  report_id     Int
+  file_name     String        @db.VarChar(255)
+  file_type     String?       @db.VarChar(50)
+  file_path     String        @db.VarChar(500)
+  uploaded_at   DateTime      @default(now()) @db.Timestamp(0)
+  daily_reports daily_reports @relation(fields: [report_id], references: [id], onUpdate: Restrict, map: "report_attachements_ibfk_1")
+
+  @@index([report_id], map: "report_id")
+}
+
+model students {
+  id                Int          @id @default(autoincrement())
+  user_id           Int?         @unique(map: "user_id")
+  student_id_number String?      @unique(map: "student_id_number") @db.VarChar(50)
+  faculty_id        Int
+  department_id     Int
+  program_of_study  String?      @db.VarChar(255)
+  is_verified       Boolean?     @default(false)
+  profile_complete  Boolean?     @default(false)
+  internships       internships?
+  users             users?       @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "students_ibfk_1")
+  faculties         faculties    @relation(fields: [faculty_id], references: [id], onUpdate: Restrict, map: "students_ibfk_2")
+  departments       departments  @relation(fields: [department_id], references: [id], onUpdate: Restrict, map: "students_ibfk_3")
+
+  @@index([department_id], map: "department_id")
+  @@index([faculty_id], map: "faculty_id")
+  @@index([user_id], map: "idx_students_user_id")
+}
+
+model users {
+  id                                      Int                  @id @default(autoincrement())
+  email                                   String?              @unique(map: "email") @db.VarChar(255)
+  password                                String               @db.VarChar(255)
+  role                                    String               @db.VarChar(50)
+  first_name                              String               @db.VarChar(100)
+  last_name                               String               @db.VarChar(100)
+  phone_number                            String?              @db.VarChar(20)
+  is_active                               Boolean?             @default(true)
+  created_at                              DateTime?            @default(now()) @db.Timestamp(0)
+  update_at                               DateTime?            @default(now()) @db.Timestamp(0)
+  company_supervisors                     company_supervisors?
+  feedbacks_feedbacks_from_user_idTousers feedbacks[]          @relation("feedbacks_from_user_idTousers")
+  feedbacks_feedbacks_to_user_idTousers   feedbacks[]          @relation("feedbacks_to_user_idTousers")
+  lecturers                               lecturers[]
+  students                                students?
+
+  @@index([email], map: "idx_users_email")
+}
