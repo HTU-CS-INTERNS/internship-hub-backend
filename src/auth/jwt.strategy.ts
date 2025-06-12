@@ -9,11 +9,6 @@ interface JwtPayload {
   role: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-interface RequestWithCookies extends Request {
-  cookies: Record<string, any>; // not optional
-}
-
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor() {
@@ -25,12 +20,12 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   }
 
   validate(payload: JwtPayload): {
-    userId: string;
+    id: string;
     email: string;
     role: string;
   } {
     return {
-      userId: payload.sub,
+      id: payload.sub,
       email: payload.email,
       role: payload.role,
     };
