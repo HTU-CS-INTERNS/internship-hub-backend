@@ -7,7 +7,7 @@ describe('DepartmentsController', () => {
   const mockDepartmentsService = {
     findAll: jest.fn().mockResolvedValue([]),
     findOne: jest.fn().mockResolvedValue({ id: 1, name: 'HR' }),
-    create: jest.fn().mockResolvedValue({ id: 1, name: 'HR' }),
+    create: jest.fn().mockResolvedValue({ faculty_id: 1, name: 'HR' }),
     update: jest.fn().mockResolvedValue({ id: 1, name: 'HR' }),
     remove: jest.fn().mockResolvedValue({ id: 1, name: 'HR' }),
   };
@@ -30,6 +30,20 @@ describe('DepartmentsController', () => {
   it('should update a department', async () => {
     return expect(await controller.update('1', { name: 'HR' })).toEqual({
       id: 1,
+      name: 'HR',
+    });
+  });
+  it('should return an array of departments', async () => {
+    return expect(await controller.findAll()).toEqual([]);
+  });
+  it('should create a department', async () => {
+    return expect(
+      await controller.create({
+        faculty_id: 1,
+        name: 'HR',
+      }),
+    ).toEqual({
+      faculty_id: 1,
       name: 'HR',
     });
   });
