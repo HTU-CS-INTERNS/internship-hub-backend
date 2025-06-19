@@ -26,7 +26,7 @@ model companies {
 }
 
 model company_supervisors {
-  id            Int             @id
+  id            Int             @id @default(autoincrement())
   user_id       Int             @unique(map: "user_id")
   company_id    Int
   job_title     String?         @db.VarChar(100)

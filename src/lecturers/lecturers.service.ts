@@ -40,7 +40,9 @@ export class LecturersService {
   }) {
     const where: Prisma.lecturersWhereInput = {
       faculty_id: query.faculty_id ? Number(query.faculty_id) : undefined,
-      department_id: query.department_id ? Number(query.department_id) : undefined,
+      department_id: query.department_id
+        ? Number(query.department_id)
+        : undefined,
       OR: query.search
         ? [
             {
