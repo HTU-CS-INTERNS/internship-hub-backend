@@ -1,16 +1,30 @@
 import { Test } from '@nestjs/testing';
 import { LecturersController } from './lecturers.controller';
 import { LecturersService } from './lecturers.service';
-import { JwtAuthGuard } from 'src/auth/jwt.auth.guard';
-import { RolesGuard } from 'src/auth/roles.guard';
+import { JwtAuthGuard } from '../auth/jwt.auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+
+import { Request } from 'express';
+import { AuthUser } from 'src/auth/interfaces/auth-user.interface';
 
 describe('LecturersController', () => {
   let controller: LecturersController;
+  let service: LecturersService;
+
+  const mockUser = {
+    id: 1,
+    email: 'joeregan@htu.edu.gh',
+    role: 'Lecturer',
+  };
+  const mockRequest = {
+    user: mockUser,
+  } as unknown as Request & { user: AuthUser };
 
   const mockLecturersService = {
     getMyprofile: jest.fn().mockResolvedValue({
-      id: 1,
-      user: 'Ben',
+      mockRequest,
+    } as unknown as Request & {
+      user: AuthUser;
     }),
     updateMyProfile: jest.fn().mockResolvedValue({}),
     getAllLecturers: jest.fn().mockResolvedValue([]),
@@ -37,8 +51,15 @@ describe('LecturersController', () => {
       .compile();
 
     controller = moduleRef.get<LecturersController>(LecturersController);
+    service = moduleRef.get<LecturersService>(LecturersService);
   });
   it('should get user profile', async () => {
-    return expect(await controller.getMyProfile({user:AuthUser;}))
+    return expect(
+      await controller.getMyProfile({ mockRequest } as unknown as Request & {
+        user: AuthUser;
+      }),
+    ).toEqual({
+      u,
+    });
   });
 });
