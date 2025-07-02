@@ -7,7 +7,6 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Request } from 'express';
 import { AuthUser } from 'src/auth/interfaces/auth-user.interface';
 
-
 describe('LecturersController', () => {
   let controller: LecturersController;
   let service: LecturersService;
@@ -35,7 +34,7 @@ describe('LecturersController', () => {
     getMyProfile: jest.fn().mockResolvedValue(mockProfile),
     updateMyProfile: jest.fn().mockResolvedValue(mockProfile),
     getAllLecturers: jest.fn().mockResolvedValue(mockProfile),
-    getlecturerprofile: jest.fn(),
+    getLecturerProfile: jest.fn().mockResolvedValue(mockProfile),
     assignstudent: jest.fn(),
     getAssignedStudents: jest.fn(),
   };
@@ -77,6 +76,13 @@ describe('LecturersController', () => {
   describe('getAllLecturers', () => {
     it('should get all lecturers', async () => {
       return expect(await controller.getAllLecturers(mockRequest));
+    });
+  });
+  describe('get Lecturer Profile', () => {
+    it('should get lecturer profile', async () => {
+      const result = await controller.getLecturerProfile(String(mockUser.id));
+      expect(result).toEqual(mockProfile);
+      expect(service.getLecturerProfile).toHaveBeenCalledWith(mockUser.id);
     });
   });
 });
