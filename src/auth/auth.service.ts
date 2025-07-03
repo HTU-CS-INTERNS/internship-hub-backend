@@ -1,7 +1,12 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { SignupDto } from './dto/signup.dto';
 
 @Injectable()
 export class AuthService {
@@ -19,12 +24,13 @@ export class AuthService {
     if (!user || !user.password) {
       throw new UnauthorizedException('Invalid credentials');
     }
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    console.log('Incoming Password:', password);
+    console.log('Stored Hash:', user.password);
     const passwordMatches: boolean = await bcrypt.compare(
       password,
       user.password,
     );
+    console.log('Password Matches:', passwordMatches);
 
     if (!passwordMatches) {
       throw new UnauthorizedException('Invalid credentials');
@@ -44,6 +50,29 @@ export class AuthService {
     return {
       token,
       user,
+    };
+  }
+
+  async signup(signupDto: SignupDto) {
+    const existing = await this.usersService.findByEmail(signupDto.email);
+    if (existing) {
+      throw new ConflictException('Email already in use');
+    }
+
+    const hashedPassword = await bcrypt.hash(signupDto.password, 10);
+
+    const newUser = await this.usersService.createUser({
+      ...signupDto,
+      password: hashedPassword,
+    });
+
+    return {
+      message: 'Signup successful',
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        role: newUser.role,
+      },
     };
   }
 }

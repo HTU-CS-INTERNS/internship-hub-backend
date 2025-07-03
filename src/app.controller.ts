@@ -6,7 +6,11 @@ export class AppController {
   constructor(private readonly appService: AppService) {}
 
   @Get()
-  getHello(): string {
-    return this.appService.getHello();
+  getApiStatus(): any {
+    return {
+      name: 'Internship Hub API',
+      status: 'running',
+      timestamp: new Date().toISOString(),
+    };
   }
 }
