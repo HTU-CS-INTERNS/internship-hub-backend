@@ -1,17 +1,16 @@
 import { Module } from '@nestjs/common';
 import { StudentsService } from './students.service';
 import { StudentsController } from './students.controller';
-import { PrismaService } from '../../prisma/prisma.service';
+import { StudentVerificationController } from './student-verification.controller';
 import { RolesGuard } from '../auth/roles.guard';
 import { JwtAuthGuard } from '../auth/jwt.auth.guard';
 
 @Module({
-  controllers: [StudentsController],
+  controllers: [StudentsController, StudentVerificationController],
   providers: [
     StudentsService,
-    PrismaService,
     RolesGuard,
-    JwtAuthGuard, // Optional: if globally applied, remove this
+    JwtAuthGuard,
   ],
 })
 export class StudentsModule {}

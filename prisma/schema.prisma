@@ -76,23 +76,25 @@ model daily_tasks {
 }
 
 model departments {
-  id         Int         @id @default(autoincrement())
-  faculty_id Int
-  name       String      @unique(map: "faculty_id, name") @db.VarChar(255)
-  hod_id     Int?
-  created_at DateTime    @default(now()) @db.Timestamp(0)
-  update_at  DateTime    @default(now()) @db.Timestamp(0)
-  lecturers  lecturers[]
-  students   students[]
+  id               Int               @id @default(autoincrement())
+  faculty_id       Int
+  name             String            @unique(map: "faculty_id, name") @db.VarChar(255)
+  hod_id           Int?
+  created_at       DateTime          @default(now()) @db.Timestamp(0)
+  update_at        DateTime          @default(now()) @db.Timestamp(0)
+  lecturers        lecturers[]
+  students         students[]
+  pending_students pending_students[]
 }
 
 model faculties {
-  id         Int         @id @default(autoincrement())
-  name       String?     @unique(map: "name") @db.VarChar(255)
-  created_at DateTime?   @default(now()) @db.Timestamp(0)
-  updated_at DateTime?   @default(now()) @db.Timestamp(0)
-  lecturers  lecturers[]
-  students   students[]
+  id               Int               @id @default(autoincrement())
+  name             String?           @unique(map: "name") @db.VarChar(255)
+  created_at       DateTime?         @default(now()) @db.Timestamp(0)
+  updated_at       DateTime?         @default(now()) @db.Timestamp(0)
+  lecturers        lecturers[]
+  students         students[]
+  pending_students pending_students[]
 }
 
 model feedbacks {
@@ -216,6 +218,42 @@ model users {
   feedbacks_feedbacks_to_user_idTousers   feedbacks[]          @relation("feedbacks_to_user_idTousers")
   lecturers                               lecturers[]
   students                                students?
+  pending_students_admin                  pending_students[] @relation("pending_students_admin")
 
   @@index([email], map: "idx_users_email")
+}
+
+model pending_students {
+  id                Int      @id @default(autoincrement())
+  student_id_number String   @unique @db.VarChar(50)
+  email             String   @unique @db.VarChar(255)
+  first_name        String   @db.VarChar(100)
+  last_name         String   @db.VarChar(100)
+  faculty_id        Int
+  department_id     Int
+  program_of_study  String?  @db.VarChar(255)
+  is_verified       Boolean  @default(false)
+  added_by_admin_id Int
+  created_at        DateTime @default(now()) @db.Timestamp(0)
+  
+  faculties    faculties   @relation(fields: [faculty_id], references: [id])
+  departments  departments @relation(fields: [department_id], references: [id])
+  admin        users       @relation("pending_students_admin", fields: [added_by_admin_id], references: [id])
+  
+  @@index([faculty_id], map: "idx_pending_students_faculty")
+  @@index([department_id], map: "idx_pending_students_department")
+  @@index([email], map: "idx_pending_students_email")
+}
+
+model otp_verifications {
+  id         Int      @id @default(autoincrement())
+  email      String   @db.VarChar(255)
+  otp_code   String   @db.VarChar(10)
+  purpose    String   @db.VarChar(50) // 'student_registration', 'password_reset', etc.
+  expires_at DateTime @db.Timestamp(0)
+  is_used    Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  
+  @@index([email, purpose], map: "idx_otp_email_purpose")
+  @@index([expires_at], map: "idx_otp_expires")
 }

@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Put,
+  Post,
   Param,
   Body,
   Query,
@@ -14,6 +15,9 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { VerifyStudentDto } from './dto/verify-student.dto';
+import { CreatePendingStudentDto } from './dto/create-pending-student.dto';
+import { SendOtpDto } from './dto/send-otp.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { Request } from 'express';
 import { AuthUser } from '../auth/interfaces/auth-user.interface';
 
@@ -61,5 +65,21 @@ export class StudentsController {
   @Roles('admin')
   verifyStudent(@Param('id') id: string, @Body() dto: VerifyStudentDto) {
     return this.studentsService.verifyStudent(+id, dto);
+  }
+
+  // Admin endpoints for managing pending students
+  @Post('pending')
+  @Roles('admin')
+  addPendingStudent(
+    @Req() req: Request & { user: AuthUser },
+    @Body() dto: CreatePendingStudentDto,
+  ) {
+    return this.studentsService.addPendingStudent(req.user.id, dto);
+  }
+
+  @Get('pending')
+  @Roles('admin')
+  getPendingStudents() {
+    return this.studentsService.getPendingStudents();
   }
 }

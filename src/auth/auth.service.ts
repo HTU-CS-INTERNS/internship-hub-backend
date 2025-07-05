@@ -45,11 +45,20 @@ export class AuthService {
 
   async login(user: { id: number; email: string; role: string }) {
     const payload = { sub: user.id, email: user.email, role: user.role };
-    const token = await this.jwtService.signAsync(payload);
+    const access_token = await this.jwtService.signAsync(payload);
+
+    // Get full user data for the response
+    const fullUser = await this.usersService.findUserById(user.id);
+    if (!fullUser) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Return user without password
+    const { password, ...userWithoutPassword } = fullUser;
 
     return {
-      token,
-      user,
+      access_token,
+      user: userWithoutPassword,
     };
   }
 

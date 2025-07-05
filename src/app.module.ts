@@ -1,6 +1,7 @@
 import { DepartmentsModule } from './departments/departments.module';
 import { Module } from '@nestjs/common';
-import { PrismaModule } from '../prisma/prisma.module'; // Updated import path
+import { ConfigModule } from '@nestjs/config';
+import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { FacultiesModule } from './faculties/faculties.module';
@@ -15,6 +16,9 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true, // Make config available globally
+    }),
     PrismaModule,
     AuthModule,
     UsersModule,
