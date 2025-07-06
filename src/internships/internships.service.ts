@@ -50,19 +50,31 @@ export class InternshipsService {
   async getMyInternships(userId: number, role: string) {
     switch (role) {
       case 'student':
+        // First get the student record for this user
+        const student = await this.getStudentByUserId(userId);
         return this.prisma.internships.findMany({
-          where: { students: { user_id: userId } },
-          include: { companies: true, company_supervisors: true },
+          where: { student_id: student.id },
+          include: { companies: true, company_supervisors: { include: { users: true } } },
         });
       case 'lecturer':
+        // First get the lecturer record for this user
+        const lecturer = await this.prisma.lecturers.findFirst({
+          where: { user_id: userId },
+        });
+        if (!lecturer) return [];
         return this.prisma.internships.findMany({
-          where: { lecturers: { user_id: userId } },
-          include: { students: true, companies: true },
+          where: { lecturer_id: lecturer.id },
+          include: { students: { include: { users: true } }, companies: true },
         });
       case 'company_supervisor':
+        // First get the company supervisor record for this user
+        const supervisor = await this.prisma.company_supervisors.findFirst({
+          where: { user_id: userId },
+        });
+        if (!supervisor) return [];
         return this.prisma.internships.findMany({
-          where: { company_supervisors: { user_id: userId } },
-          include: { students: true, companies: true },
+          where: { company_supervisor_id: supervisor.id },
+          include: { students: { include: { users: true } }, companies: true },
         });
       default:
         return [];
@@ -212,7 +224,6 @@ export class InternshipsService {
           role: 'supervisor',
           first_name: submission.supervisor_name.split(' ')[0] || submission.supervisor_name,
           last_name: submission.supervisor_name.split(' ').slice(1).join(' ') || '',
-          is_verified: false,
         },
       });
     }
