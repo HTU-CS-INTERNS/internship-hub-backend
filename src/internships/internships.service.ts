@@ -48,7 +48,10 @@ export class InternshipsService {
   }
 
   async getMyInternships(userId: number, role: string) {
-    switch (role) {
+    // Normalize role to handle both frontend (uppercase) and backend (lowercase) role formats
+    const normalizedRole = role.toLowerCase();
+    
+    switch (normalizedRole) {
       case 'student':
         // First get the student record for this user
         const student = await this.getStudentByUserId(userId);
@@ -67,6 +70,7 @@ export class InternshipsService {
           include: { students: { include: { users: true } }, companies: true },
         });
       case 'company_supervisor':
+      case 'supervisor':
         // First get the company supervisor record for this user
         const supervisor = await this.prisma.company_supervisors.findFirst({
           where: { user_id: userId },
