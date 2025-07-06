@@ -193,6 +193,7 @@ model students {
   is_verified       Boolean?     @default(false)
   profile_complete  Boolean?     @default(false)
   internships       internships?
+  pending_internships pending_internships?
   users             users?       @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "students_ibfk_1")
   faculties         faculties    @relation(fields: [faculty_id], references: [id], onUpdate: Restrict, map: "students_ibfk_2")
   departments       departments  @relation(fields: [department_id], references: [id], onUpdate: Restrict, map: "students_ibfk_3")
@@ -219,6 +220,7 @@ model users {
   lecturers                               lecturers[]
   students                                students?
   pending_students_admin                  pending_students[] @relation("pending_students_admin")
+  reviewed_internships                    pending_internships[]
 
   @@index([email], map: "idx_users_email")
 }
@@ -256,4 +258,30 @@ model otp_verifications {
   
   @@index([email, purpose], map: "idx_otp_email_purpose")
   @@index([expires_at], map: "idx_otp_expires")
+}
+
+model pending_internships {
+  id                Int      @id @default(autoincrement())
+  student_id        Int      @unique(map: "student_id")
+  company_name      String   @db.VarChar(100)
+  company_address   String   @db.VarChar(200)
+  supervisor_name   String   @db.VarChar(100)
+  supervisor_email  String   @db.VarChar(255)
+  start_date        DateTime @db.Date
+  end_date          DateTime @db.Date
+  location          String   @db.VarChar(100)
+  status            String   @default("PENDING_APPROVAL") @db.VarChar(50)
+  rejection_reason  String?  @db.Text
+  submitted_at      DateTime @default(now()) @db.Timestamp(0)
+  reviewed_at       DateTime? @db.Timestamp(0)
+  reviewed_by       Int?
+  created_at        DateTime @default(now()) @db.Timestamp(0)
+  updated_at        DateTime @default(now()) @db.Timestamp(0)
+  
+  students          students @relation(fields: [student_id], references: [id], onUpdate: Restrict, map: "pending_internships_ibfk_1")
+  reviewer          users?   @relation(fields: [reviewed_by], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "pending_internships_ibfk_2")
+
+  @@index([student_id], map: "idx_pending_internships_student_id")
+  @@index([status], map: "idx_pending_internships_status")
+  @@index([reviewed_by], map: "idx_pending_internships_reviewed_by")
 }

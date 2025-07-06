@@ -12,6 +12,8 @@ import { InternshipsService } from './internships.service';
 import { CreateInternshipDto } from './dto/create-internship.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { AssignLecturerDto } from './dto/assign-lecturer.dto';
+import { SubmitInternshipDto } from './dto/submit-internship.dto';
+import { ApproveRejectInternshipDto } from './dto/approve-reject-internship.dto';
 import { JwtAuthGuard } from '../auth/jwt.auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -50,5 +52,43 @@ export class InternshipsController {
   @Roles('admin')
   updateStatus(@Param('id') id: string, @Body() dto: UpdateStatusDto) {
     return this.internshipService.updateStatus(+id, dto);
+  }
+
+  // Student submits internship for approval
+  @Post('submit')
+  @Roles('student')
+  async submitInternship(
+    @Req() req: Request & { user: AuthUser },
+    @Body() dto: SubmitInternshipDto
+  ) {
+    // Get student ID from user
+    const student = await this.internshipService.getStudentByUserId(req.user.id);
+    return this.internshipService.submitInternshipForApproval(student.id, dto);
+  }
+
+  // Student gets their pending internship
+  @Get('my-submission')
+  @Roles('student')
+  async getMySubmission(@Req() req: Request & { user: AuthUser }) {
+    const student = await this.internshipService.getStudentByUserId(req.user.id);
+    return this.internshipService.getStudentPendingInternship(student.id);
+  }
+
+  // Admin gets all pending submissions
+  @Get('pending')
+  @Roles('admin')
+  async getPendingSubmissions() {
+    return this.internshipService.getPendingInternships();
+  }
+
+  // Admin approves or rejects a submission
+  @Put('pending/:id/review')
+  @Roles('admin')
+  async reviewSubmission(
+    @Param('id') id: string,
+    @Req() req: Request & { user: AuthUser },
+    @Body() dto: ApproveRejectInternshipDto
+  ) {
+    return this.internshipService.approveRejectInternship(+id, req.user.id, dto);
   }
 }
