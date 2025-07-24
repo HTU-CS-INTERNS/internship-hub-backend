@@ -16,8 +16,8 @@ model companies {
   industry               String?               @db.VarChar(255)
   contact_email          String?               @db.VarChar(255)
   contact_phone          String?               @db.VarChar(20)
-  geofence_latitude      Decimal?              @db.Decimal(10, 8)
-  geofence_longitude     Decimal?              @db.Decimal(11, 8)
+  latitude               Float?
+  longitude              Float?
   geofence_radius_meters Int?
   created_at             DateTime              @default(now()) @db.Timestamp(0)
   updated_at             DateTime?             @default(now()) @db.Timestamp(0)

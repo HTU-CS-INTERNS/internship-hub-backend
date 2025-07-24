@@ -3,6 +3,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
+import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class CompaniesService {
@@ -13,11 +14,11 @@ export class CompaniesService {
     return this.prisma.companies.create({
       data: {
         ...dto,
-        geofence_latitude: dto.geofence_latitude
-          ? Number(dto.geofence_latitude)
+        latitude: dto.latitude
+          ? Number(dto.latitude)
           : undefined,
-        geofence_longitude: dto.geofence_longitude
-          ? Number(dto.geofence_longitude)
+        longitude: dto.longitude
+          ? Number(dto.longitude)
           : undefined,
         geofence_radius_meters: dto.geofence_radius_meters
           ? Number(dto.geofence_radius_meters)
@@ -69,11 +70,11 @@ export class CompaniesService {
       where: { id },
       data: {
         ...dto,
-        geofence_latitude: dto.geofence_latitude
-          ? Number(dto.geofence_latitude)
+        latitude: dto.latitude
+          ? Number(dto.latitude)
           : undefined,
-        geofence_longitude: dto.geofence_longitude
-          ? Number(dto.geofence_longitude)
+        longitude: dto.longitude
+          ? Number(dto.longitude)
           : undefined,
         geofence_radius_meters: dto.geofence_radius_meters
           ? Number(dto.geofence_radius_meters)

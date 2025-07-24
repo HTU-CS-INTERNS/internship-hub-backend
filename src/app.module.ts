@@ -1,3 +1,4 @@
+import { EmailModule } from './email/email.module';
 import { DepartmentsModule } from './departments/departments.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -12,6 +13,8 @@ import { DailyTasksModule } from './daily-tasks/daily-tasks.module';
 import { DailyReportsModule } from './daily_reports/daily_reports.module';
 import { CompanySupervisorsModule } from './company-supervisors/company-supervisors.module';
 import { CompaniesModule } from './companies/companies.module';
+import { CheckInsModule } from './check-ins/check-ins.module';
+import { AdminModule } from './admin/admin.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 @Module({
@@ -31,6 +34,9 @@ import { AppService } from './app.service';
     DailyReportsModule,
     CompanySupervisorsModule,
     CompaniesModule,
+    CheckInsModule,
+    AdminModule,
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [AppService],

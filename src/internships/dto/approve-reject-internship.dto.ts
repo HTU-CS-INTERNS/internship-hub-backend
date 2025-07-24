@@ -13,4 +13,10 @@ export class ApproveRejectInternshipDto {
   @IsOptional()
   @IsString()
   rejection_reason?: string;
+
+  @IsOptional()
+  latitude?: number;
+
+  @IsOptional()
+  longitude?: number;
 }

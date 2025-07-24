@@ -181,8 +181,8 @@ async function main() {
       industry: 'Software Development',
       contact_email: 'hr@techcorp.com.gh',
       contact_phone: '+233302123456',
-      geofence_latitude: 5.5600,
-      geofence_longitude: -0.2057,
+      latitude: 5.5600,
+      longitude: -0.2057,
       geofence_radius_meters: 100,
     },
   });
@@ -198,8 +198,8 @@ async function main() {
       industry: 'Marketing & Advertising',
       contact_email: 'info@marketingpro.gh',
       contact_phone: '+233302654321',
-      geofence_latitude: 5.5692,
-      geofence_longitude: -0.1778,
+      latitude: 5.5692,
+      longitude: -0.1778,
       geofence_radius_meters: 150,
     },
   });

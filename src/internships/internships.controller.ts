@@ -7,6 +7,7 @@ import {
   Body,
   UseGuards,
   Req,
+  BadRequestException, // <-- Import BadRequestException
 } from '@nestjs/common';
 import { InternshipsService } from './internships.service';
 import { CreateInternshipDto } from './dto/create-internship.dto';
@@ -18,6 +19,7 @@ import { JwtAuthGuard } from '../auth/jwt.auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { AuthUser } from '../auth/interfaces/auth-user.interface';
+import { Request } from 'express'; // Ensure Request is imported for @Req() type hinting
 
 @Controller('api/internships')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -39,19 +41,35 @@ export class InternshipsController {
   @Get(':id')
   @Roles('admin', 'student', 'lecturer', 'company_supervisor')
   getById(@Param('id') id: string) {
-    return this.internshipService.getInternshipById(+id);
+    // FIX: Validate the ID parameter before passing it to the service
+    const internshipId = parseInt(id, 10); // Convert string to number
+
+    // If the conversion results in NaN (Not a Number), it means the ID was invalid
+    if (isNaN(internshipId)) {
+      throw new BadRequestException('Invalid internship ID provided. ID must be a number.');
+    }
+
+    return this.internshipService.getInternshipById(internshipId);
   }
 
   @Put(':id/assign-lecturer')
   @Roles('admin')
   assignLecturer(@Param('id') id: string, @Body() dto: AssignLecturerDto) {
-    return this.internshipService.assignLecturer(+id, dto);
+    const internshipId = parseInt(id, 10);
+    if (isNaN(internshipId)) {
+      throw new BadRequestException('Invalid internship ID provided.');
+    }
+    return this.internshipService.assignLecturer(internshipId, dto);
   }
 
   @Put(':id/status')
   @Roles('admin')
   updateStatus(@Param('id') id: string, @Body() dto: UpdateStatusDto) {
-    return this.internshipService.updateStatus(+id, dto);
+    const internshipId = parseInt(id, 10);
+    if (isNaN(internshipId)) {
+      throw new BadRequestException('Invalid internship ID provided.');
+    }
+    return this.internshipService.updateStatus(internshipId, dto);
   }
 
   // Student submits internship for approval
@@ -61,7 +79,6 @@ export class InternshipsController {
     @Req() req: Request & { user: AuthUser },
     @Body() dto: SubmitInternshipDto
   ) {
-    // Get student ID from user
     const student = await this.internshipService.getStudentByUserId(req.user.id);
     return this.internshipService.submitInternshipForApproval(student.id, dto);
   }
@@ -89,6 +106,10 @@ export class InternshipsController {
     @Req() req: Request & { user: AuthUser },
     @Body() dto: ApproveRejectInternshipDto
   ) {
-    return this.internshipService.approveRejectInternship(+id, req.user.id, dto);
+    const submissionId = parseInt(id, 10);
+    if (isNaN(submissionId)) {
+      throw new BadRequestException('Invalid submission ID provided.');
+    }
+    return this.internshipService.approveRejectInternship(submissionId, req.user.id, dto);
   }
 }

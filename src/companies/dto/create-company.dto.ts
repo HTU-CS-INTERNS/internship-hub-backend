@@ -33,11 +33,11 @@ export class CreateCompanyDto {
 
   @IsOptional()
   @IsDecimal()
-  geofence_latitude?: number;
+  latitude?: number;
+  longitude?: number;
 
   @IsOptional()
   @IsDecimal()
-  geofence_longitude?: number;
 
   @IsOptional()
   @IsInt()

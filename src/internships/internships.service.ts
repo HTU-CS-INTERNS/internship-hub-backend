@@ -1,3 +1,4 @@
+import { EmailService } from '../email/email.service';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateInternshipDto } from './dto/create-internship.dto';
@@ -8,7 +9,10 @@ import { ApproveRejectInternshipDto } from './dto/approve-reject-internship.dto'
 
 @Injectable()
 export class InternshipsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
+  ) {}
 
   // Helper method to get student by user ID
   async getStudentByUserId(userId: number) {
@@ -34,7 +38,7 @@ export class InternshipsService {
 
   async getInternshipById(id: number) {
     const internship = await this.prisma.internships.findUnique({
-      where: { id },
+      where: {id: id,},
       include: {
         students: { include: { users: true } },
         companies: true,
@@ -86,10 +90,39 @@ export class InternshipsService {
   }
 
   async assignLecturer(id: number, dto: AssignLecturerDto) {
-    return this.prisma.internships.update({
+    // Get lecturer details to check if account needs activation
+    const lecturer = await this.prisma.lecturers.findUnique({
+      where: { id: dto.lecturer_id },
+      include: { users: true },
+    });
+
+    if (!lecturer) {
+      throw new NotFoundException('Lecturer not found');
+    }
+
+    // Update the internship with lecturer assignment
+    const updatedInternship = await this.prisma.internships.update({
       where: { id },
       data: { lecturer_id: dto.lecturer_id },
+      include: {
+        students: { include: { users: true } },
+        lecturers: { include: { users: true } },
+      },
     });
+
+    // Defensive: handle both array and object for students and lecturers
+    const studentUser = Array.isArray(updatedInternship.students) ? updatedInternship.students[0]?.users : updatedInternship.students?.users;
+    const lecturerUser = Array.isArray(updatedInternship.lecturers) ? updatedInternship.lecturers[0]?.users : updatedInternship.lecturers?.users;
+
+    // If lecturer account is inactive, send onboarding email
+    if (lecturerUser && !lecturerUser.is_active) {
+      const subject = 'Welcome to Internship Hub - Activate Your Account';
+      const text = `Welcome to Internship Hub! You have been assigned as a lecturer supervisor for student: ${studentUser?.first_name || ''} ${studentUser?.last_name || ''}. To activate your account, visit: https://your-app-url/login and click on "New Lecturer? Activate Account".`;
+      const html = `<p>Welcome to Internship Hub!</p><p>You have been assigned as a lecturer supervisor for student: <strong>${studentUser?.first_name || ''} ${studentUser?.last_name || ''}</strong>.</p><p>To activate your account, please <a href="https://your-app-url/login">log in</a> and click on "New Lecturer? Activate Account" to complete the OTP verification process.</p>`;
+      await this.emailService.sendMail(lecturerUser.email, subject, text, html);
+    }
+
+    return updatedInternship;
   }
 
   async updateStatus(id: number, dto: UpdateStatusDto) {
@@ -192,13 +225,13 @@ export class InternshipsService {
 
     // If approved, create company, supervisor, and actual internship
     if (dto.status === 'APPROVED') {
-      await this.createApprovedInternship(submission);
+      await this.createApprovedInternship(submission, dto);
     }
 
     return updatedSubmission;
   }
 
-  private async createApprovedInternship(submission: any) {
+  private async createApprovedInternship(submission: any, dto: ApproveRejectInternshipDto) {
     // Create or find company
     let company = await this.prisma.companies.findFirst({
       where: { name: submission.company_name },
@@ -211,6 +244,17 @@ export class InternshipsService {
           address: submission.company_address,
           city: 'Unknown', // Could be extracted from address
           region: 'Unknown', // Could be extracted from address
+          latitude: dto.latitude ? parseFloat(String(dto.latitude)) : null,
+          longitude: dto.longitude ? parseFloat(String(dto.longitude)) : null,
+        },
+      });
+    } else if (dto.latitude && dto.longitude) {
+      // If company exists and lat/long are provided, update it
+      company = await this.prisma.companies.update({
+        where: { id: company.id },
+        data: {
+          latitude: dto.latitude ? parseFloat(String(dto.latitude)) : null,
+          longitude: dto.longitude ? parseFloat(String(dto.longitude)) : null,
         },
       });
     }
@@ -224,12 +268,19 @@ export class InternshipsService {
       supervisorUser = await this.prisma.users.create({
         data: {
           email: submission.supervisor_email,
-          password: 'temporary_password', // Should generate a secure temporary password
+          password: '', // No password yet, will be set after OTP verification
           role: 'supervisor',
           first_name: submission.supervisor_name.split(' ')[0] || submission.supervisor_name,
           last_name: submission.supervisor_name.split(' ').slice(1).join(' ') || '',
+          is_active: false, // Mark as not active until verified
         },
       });
+
+      // Send onboarding email with login URL and instructions (OTP is sent on first login attempt)
+      const subject = 'Welcome to Internship Hub - Activate Your Supervisor Account';
+      const text = `Welcome to Internship Hub! You have been registered as a supervisor for ${submission.company_name}. To activate your account, visit: https://your-app-url/login, enter your email, and follow the OTP verification process.`;
+      const html = `<p>Welcome to Internship Hub!</p><p>You have been registered as a supervisor for <strong>${submission.company_name}</strong>.</p><p>To activate your account, please <a href="https://your-app-url/login">log in</a> with your email and follow the OTP verification process to set your password.</p>`;
+      await this.emailService.sendMail(submission.supervisor_email, subject, text, html);
     }
 
     // Create company supervisor record

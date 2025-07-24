@@ -1,11 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { EmailService } from '../email/email.service';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpdateLecturerDto } from './dto/update-lecturer.dto';
+import { VerifyLecturerOtpDto } from './dto/verify-lecturer-otp.dto';
 import { Prisma } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class LecturersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
+  ) {}
 
   // Get the authenticated lecturer's profile
   async getMyProfile(userId: number) {
@@ -119,4 +125,129 @@ export class LecturersService {
       },
     });
   }
-}
+
+  // OTP verification methods for lecturer onboarding
+  async sendLecturerOtp(email: string) {
+    // Check if this email is an inactive lecturer
+    const lecturerUser = await this.prisma.users.findUnique({
+      where: { 
+        email,
+        role: 'lecturer',
+        is_active: false,
+      },
+    });
+
+    if (!lecturerUser) {
+      throw new NotFoundException('Lecturer account not found or already activated. Please contact your administrator.');
+    }
+
+    // Generate OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Save OTP
+    await this.prisma.otp_verifications.create({
+      data: {
+        email,
+        otp_code: otpCode,
+        purpose: 'lecturer_activation',
+        expires_at: expiresAt,
+      },
+    });
+
+    // TODO: Send email with OTP
+    // For now, we'll just log it (in production, integrate with email service)
+    console.log(`OTP for lecturer ${email}: ${otpCode}`);
+
+    return {
+      message: 'OTP sent successfully to your email',
+      email,
+      // TODO: Remove this in production
+      otp: otpCode, // For testing purposes only
+    };
+  }
+
+  async verifyLecturerOtpAndActivateAccount(dto: VerifyLecturerOtpDto) {
+    // Find valid OTP
+    const otpRecord = await this.prisma.otp_verifications.findFirst({
+      where: {
+        email: dto.email,
+        otp_code: dto.otp_code,
+        purpose: 'lecturer_activation',
+        is_used: false,
+        expires_at: {
+          gt: new Date(),
+        },
+      },
+    });
+
+    if (!otpRecord) {
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+
+    // Get lecturer user
+    const lecturerUser = await this.prisma.users.findUnique({
+      where: { 
+        email: dto.email,
+        role: 'lecturer',
+      },
+    });
+
+    if (!lecturerUser) {
+      throw new NotFoundException('Lecturer account not found');
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+
+    try {
+      // Update user and lecturer in a transaction
+      const result = await this.prisma.$transaction(async (tx) => {
+        // Update user with password and activate account
+        const updatedUser = await tx.users.update({
+          where: { id: lecturerUser.id },
+          data: {
+            password: hashedPassword,
+            phone_number: dto.phone_number || lecturerUser.phone_number,
+            is_active: true,
+          },
+        });
+
+        // Update lecturer profile if provided
+        const lecturerProfile = await tx.lecturers.findFirst({
+          where: { user_id: lecturerUser.id },
+        });
+
+        if (lecturerProfile && dto.staff_id) {
+          await tx.lecturers.update({
+            where: { id: lecturerProfile.id },
+            data: {
+              staff_id_number: dto.staff_id || lecturerProfile.staff_id_number,
+            },
+          });
+        }
+
+        // Mark OTP as used
+        await tx.otp_verifications.update({
+          where: { id: otpRecord.id },
+          data: { is_used: true },
+        });
+
+        return updatedUser;
+      });
+
+      return {
+        message: 'Account activated successfully',
+        user: {
+          id: result.id,
+          email: result.email,
+          role: result.role,
+          first_name: result.first_name,
+          last_name: result.last_name,
+        },
+      };
+    } catch (error) {
+      throw new BadRequestException('Failed to activate account');
+    }
+  }
+  }
