@@ -9,7 +9,7 @@ async function bootstrap() {
   app.use(helmet());
 
   // Set Global API Prefix
-  // app.setGlobalPrefix('api'); // <--- ADD THIS LINE!
+  app.setGlobalPrefix('api'); // <--- ADD THIS LINE!
 
   // --- ADD THIS CONSOLE.LOG ---
   console.log(`Backend is loading FRONTEND_URL as: ${process.env.FRONTEND_URL}`);

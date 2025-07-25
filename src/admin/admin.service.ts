@@ -119,10 +119,8 @@ export class AdminService {
   async getFaculties() {
     return this.prisma.faculties.findMany({
       include: {
-        departments: true,
         _count: {
           select: {
-            departments: true,
             students: true
           }
         }
@@ -171,7 +169,6 @@ export class AdminService {
     return this.prisma.departments.findMany({
       where,
       include: {
-        faculties: true,
         _count: {
           select: {
             students: true,
@@ -185,8 +182,7 @@ export class AdminService {
 
   async createDepartment(departmentData: any) {
     return this.prisma.departments.create({
-      data: departmentData,
-      include: { faculties: true }
+      data: departmentData
     });
   }
 
@@ -198,8 +194,7 @@ export class AdminService {
 
     return this.prisma.departments.update({
       where: { id },
-      data: departmentData,
-      include: { faculties: true }
+      data: departmentData
     });
   }
 
@@ -265,7 +260,7 @@ export class AdminService {
             }
           }
         },
-        orderBy: { created_at: 'desc' }
+        orderBy: { id: 'desc' }
       }),
       this.prisma.students.count({ where })
     ]);
@@ -418,12 +413,12 @@ export class AdminService {
       weekInternships,
       monthInternships
     ] = await Promise.all([
-      this.prisma.user.count({ where: { created_at: { gte: startOfDay } } }),
-      this.prisma.user.count({ where: { created_at: { gte: startOfWeek } } }),
-      this.prisma.user.count({ where: { created_at: { gte: startOfMonth } } }),
-      this.prisma.internship.count({ where: { created_at: { gte: startOfDay } } }),
-      this.prisma.internship.count({ where: { created_at: { gte: startOfWeek } } }),
-      this.prisma.internship.count({ where: { created_at: { gte: startOfMonth } } })
+      this.prisma.users.count({ where: { created_at: { gte: startOfDay } } }),
+      this.prisma.users.count({ where: { created_at: { gte: startOfWeek } } }),
+      this.prisma.users.count({ where: { created_at: { gte: startOfMonth } } }),
+      this.prisma.internships.count({ where: { created_at: { gte: startOfDay } } }),
+      this.prisma.internships.count({ where: { created_at: { gte: startOfWeek } } }),
+      this.prisma.internships.count({ where: { created_at: { gte: startOfMonth } } })
     ]);
 
     return {
@@ -529,9 +524,9 @@ export class AdminService {
       internshipApplications,
       completedInternships
     ] = await Promise.all([
-      this.prisma.user.count({ where: { created_at: { gte: startDate } } }),
-      this.prisma.internship.count({ where: { created_at: { gte: startDate } } }),
-      this.prisma.internship.count({ 
+      this.prisma.users.count({ where: { created_at: { gte: startDate } } }),
+      this.prisma.internships.count({ where: { created_at: { gte: startDate } } }),
+      this.prisma.internships.count({ 
         where: { 
           created_at: { gte: startDate },
           status: 'completed'
@@ -591,14 +586,14 @@ export class AdminService {
     ] = await Promise.all([
       // This would typically query active sessions
       Promise.resolve(42), // Mock data
-      this.prisma.checkIn.count({
+      this.prisma.location_check_ins.count({
         where: {
           check_in_timestamp: {
             gte: new Date(new Date().setHours(0, 0, 0, 0))
           }
         }
       }),
-      this.prisma.internship.count({ where: { status: 'pending' } })
+      this.prisma.internships.count({ where: { status: 'pending' } })
     ]);
 
     return {

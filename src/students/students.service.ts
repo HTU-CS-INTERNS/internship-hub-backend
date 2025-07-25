@@ -440,4 +440,741 @@ export class StudentsService {
 
     return distance;
   }
+
+  /**
+   * Get student's activity data for dashboard analytics
+   */
+  async getActivityData(userId: number, period: string) {
+    const student = await this.prisma.students.findFirst({ 
+      where: { user_id: userId } 
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    const now = new Date();
+    let startDate: Date;
+
+    switch (period) {
+      case 'week':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case 'year':
+        startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    }
+
+    // Get check-ins data
+    const checkIns = await this.prisma.location_check_ins.findMany({
+      where: {
+        internships: { student_id: student.id },
+        check_in_timestamp: { gte: startDate },
+      },
+      orderBy: { check_in_timestamp: 'desc' },
+    });
+
+    // Get daily reports data
+    const reports = await this.prisma.daily_reports.findMany({
+      where: {
+        internships: { student_id: student.id },
+        submission_timestamp: { gte: startDate },
+      },
+      orderBy: { submission_timestamp: 'desc' },
+    });
+
+    // Get tasks data
+    const tasks = await this.prisma.daily_tasks.findMany({
+      where: {
+        internships: { student_id: student.id },
+        created_at: { gte: startDate },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    // Process data into chart-friendly format
+    const chartData = this.processActivityChartData(checkIns, reports, tasks, period);
+
+    return {
+      checkInsCount: checkIns.length,
+      reportsCount: reports.length,
+      tasksCount: tasks.length,
+      chartData,
+      period,
+    };
+  }
+
+  /**
+   * Get student's dashboard metrics
+   */
+  async getDashboardMetrics(userId: number) {
+    const student = await this.prisma.students.findFirst({ 
+      where: { user_id: userId } 
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    const internship = await this.getMyActiveInternship(userId);
+
+    // Basic metrics
+    const totalCheckIns = await this.prisma.location_check_ins.count({
+      where: {
+        internships: { student_id: student.id },
+      },
+    });
+
+    const totalReports = await this.prisma.daily_reports.count({
+      where: { 
+        internships: { student_id: student.id },
+      },
+    });
+
+    const totalTasks = await this.prisma.daily_tasks.count({
+      where: { 
+        internships: { student_id: student.id },
+      },
+    });
+
+    const completedTasks = await this.prisma.daily_tasks.count({
+      where: { 
+        internships: { student_id: student.id },
+        status: 'completed',
+      },
+    });
+
+    // Calculate completion rate
+    const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+
+    // Get recent activity
+    const recentCheckIns = await this.prisma.location_check_ins.findMany({
+      where: {
+        internships: { student_id: student.id },
+      },
+      orderBy: { check_in_timestamp: 'desc' },
+      take: 5,
+    });
+
+    return {
+      totalCheckIns,
+      totalReports,
+      totalTasks,
+      completedTasks,
+      completionRate: Math.round(completionRate),
+      internshipActive: !!internship,
+      internshipStartDate: internship?.start_date,
+      internshipEndDate: internship?.end_date,
+      recentActivity: recentCheckIns.length,
+    };
+  }
+
+  /**
+   * Get student's progress data
+   */
+  async getProgressData(userId: number) {
+    const student = await this.prisma.students.findFirst({ 
+      where: { user_id: userId } 
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    const internship = await this.getMyActiveInternship(userId);
+
+    if (!internship) {
+      return {
+        overallProgress: 0,
+        skillsProgress: [],
+        milestonesProgress: [],
+        weeklyProgress: [],
+      };
+    }
+
+    // Calculate progress based on days elapsed
+    const startDate = new Date(internship.start_date);
+    const endDate = new Date(internship.end_date);
+    const currentDate = new Date();
+
+    const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    const elapsedDays = Math.max(0, Math.ceil((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
+    
+    const overallProgress = Math.min(100, Math.round((elapsedDays / totalDays) * 100));
+
+    // Get tasks for progress calculation
+    const tasks = await this.prisma.daily_tasks.findMany({
+      where: { 
+        internships: { student_id: student.id },
+      },
+    });
+
+    const completedTasks = tasks.filter(task => task.status === 'completed').length;
+    const taskProgress = tasks.length > 0 ? (completedTasks / tasks.length) * 100 : 0;
+
+    return {
+      overallProgress,
+      taskProgress: Math.round(taskProgress),
+      totalTasks: tasks.length,
+      completedTasks,
+      daysElapsed: elapsedDays,
+      totalDays,
+      skillsProgress: [], // Placeholder for future skills tracking
+      milestonesProgress: [], // Placeholder for future milestones
+    };
+  }
+
+  /**
+   * Get student's documents
+   */
+  async getDocuments(userId: number) {
+    const student = await this.prisma.students.findFirst({ 
+      where: { user_id: userId } 
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    // For now, return placeholder structure
+    // In the future, this would connect to a documents table
+    return {
+      documents: [],
+      message: 'Document management not yet implemented',
+    };
+  }
+
+  /**
+   * Upload a document (placeholder)
+   */
+  async uploadDocument(userId: number, uploadData: any) {
+    const student = await this.prisma.students.findFirst({ 
+      where: { user_id: userId } 
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    // Placeholder implementation
+    return {
+      success: false,
+      message: 'Document upload not yet implemented',
+    };
+  }
+
+  /**
+   * Delete a document (placeholder)
+   */
+  async deleteDocument(userId: number, documentId: number) {
+    const student = await this.prisma.students.findFirst({ 
+      where: { user_id: userId } 
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    return {
+      success: false,
+      message: 'Document deletion not yet implemented',
+    };
+  }
+
+  /**
+   * Get student's skills (placeholder)
+   */
+  async getSkills(userId: number) {
+    const student = await this.prisma.students.findFirst({ 
+      where: { user_id: userId } 
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    return {
+      skills: [],
+      message: 'Skills tracking not yet implemented',
+    };
+  }
+
+  /**
+   * Update skill progress (placeholder)
+   */
+  async updateSkillProgress(userId: number, skillId: number, progressData: any) {
+    const student = await this.prisma.students.findFirst({ 
+      where: { user_id: userId } 
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    return {
+      success: false,
+      message: 'Skill progress update not yet implemented',
+    };
+  }
+
+  /**
+   * Get student's milestones (placeholder)
+   */
+  async getMilestones(userId: number) {
+    const student = await this.prisma.students.findFirst({ 
+      where: { user_id: userId } 
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    return {
+      milestones: [],
+      message: 'Milestones tracking not yet implemented',
+    };
+  }
+
+  /**
+   * Update milestone progress (placeholder)
+   */
+  async updateMilestoneProgress(userId: number, milestoneId: number, progressData: any) {
+    const student = await this.prisma.students.findFirst({ 
+      where: { user_id: userId } 
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    return {
+      success: false,
+      message: 'Milestone progress update not yet implemented',
+    };
+  }
+
+  /**
+   * Get attendance records
+   */
+  async getAttendanceRecords(userId: number, startDate?: string, endDate?: string) {
+    const student = await this.prisma.students.findFirst({ 
+      where: { user_id: userId } 
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    const whereClause: any = {
+      internships: { student_id: student.id },
+    };
+
+    if (startDate && endDate) {
+      whereClause.check_in_timestamp = {
+        gte: new Date(startDate),
+        lte: new Date(endDate),
+      };
+    }
+
+    const checkIns = await this.prisma.location_check_ins.findMany({
+      where: whereClause,
+      include: {
+        internships: {
+          include: {
+            companies: true,
+          },
+        },
+      },
+      orderBy: { check_in_timestamp: 'desc' },
+    });
+
+    // Transform check-ins into attendance records
+    const attendanceRecords = checkIns.map(checkIn => ({
+      id: checkIn.id,
+      date: checkIn.check_in_timestamp.toISOString().split('T')[0],
+      checkInTime: checkIn.check_in_timestamp,
+      isWithinGeofence: checkIn.is_within_geofence,
+      company: checkIn.internships.companies.name,
+      location: {
+        latitude: checkIn.latitude,
+        longitude: checkIn.longitude,
+      },
+    }));
+
+    return {
+      records: attendanceRecords,
+      total: attendanceRecords.length,
+    };
+  }
+
+  /**
+   * Submit attendance (placeholder for future implementation)
+   */
+  async submitAttendance(userId: number, attendanceData: any) {
+    const student = await this.prisma.students.findFirst({ 
+      where: { user_id: userId } 
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    // For now, this redirects to check-in functionality
+    // In the future, this could handle more complex attendance data
+    return {
+      success: true,
+      message: 'Use check-in functionality for attendance tracking',
+    };
+  }
+
+  /**
+   * Helper method to process activity data into chart format
+   */
+  private processActivityChartData(checkIns: any[], reports: any[], tasks: any[], period: string) {
+    const data: Array<{ date: string; checkIns: number; reports: number; tasks: number }> = [];
+    const now = new Date();
+    let groupBy: 'day' | 'week' | 'month' = 'day';
+
+    switch (period) {
+      case 'week':
+        groupBy = 'day';
+        break;
+      case 'month':
+        groupBy = 'day';
+        break;
+      case 'year':
+        groupBy = 'month';
+        break;
+    }
+
+    // Create date groups and count activities
+    const groups = new Map<string, { checkIns: number; reports: number; tasks: number }>();
+
+    [...checkIns, ...reports, ...tasks].forEach(item => {
+      // Use appropriate timestamp field based on item type
+      let timestamp: Date;
+      if (item.check_in_timestamp) {
+        timestamp = new Date(item.check_in_timestamp);
+      } else if (item.submission_timestamp) {
+        timestamp = new Date(item.submission_timestamp);
+      } else if (item.created_at) {
+        timestamp = new Date(item.created_at);
+      } else {
+        return; // Skip items without timestamp
+      }
+
+      let key: string;
+
+      if (groupBy === 'day') {
+        key = timestamp.toISOString().split('T')[0];
+      } else if (groupBy === 'month') {
+        key = `${timestamp.getFullYear()}-${(timestamp.getMonth() + 1).toString().padStart(2, '0')}`;
+      } else {
+        // Default fallback to day format
+        key = timestamp.toISOString().split('T')[0];
+      }
+
+      if (!groups.has(key)) {
+        groups.set(key, { checkIns: 0, reports: 0, tasks: 0 });
+      }
+
+      const group = groups.get(key)!;
+      if (checkIns.includes(item)) group.checkIns++;
+      if (reports.includes(item)) group.reports++;
+      if (tasks.includes(item)) group.tasks++;
+    });
+
+    // Convert to array format
+    for (const [date, counts] of groups.entries()) {
+      data.push({
+        date,
+        ...counts,
+      });
+    }
+
+    return data.sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  /**
+   * Get student's tasks from active internship
+   */
+  async getStudentTasks(userId: number, filters: { status?: string; date?: string }) {
+    const student = await this.prisma.students.findFirst({ 
+      where: { user_id: userId } 
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    const whereClause: any = {
+      internships: { student_id: student.id },
+    };
+
+    if (filters.status) {
+      whereClause.status = filters.status;
+    }
+
+    if (filters.date) {
+      const date = new Date(filters.date);
+      const nextDay = new Date(date);
+      nextDay.setDate(date.getDate() + 1);
+      
+      whereClause.task_date = {
+        gte: date,
+        lt: nextDay,
+      };
+    }
+
+    const tasks = await this.prisma.daily_tasks.findMany({
+      where: whereClause,
+      orderBy: { created_at: 'desc' },
+    });
+
+    return {
+      tasks,
+      total: tasks.length,
+    };
+  }
+
+  /**
+   * Create a new task for student
+   */
+  async createStudentTask(userId: number, taskData: any) {
+    const student = await this.prisma.students.findFirst({ 
+      where: { user_id: userId } 
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    const internship = await this.getMyActiveInternship(userId);
+    if (!internship) {
+      throw new BadRequestException('No active internship found');
+    }
+
+    const task = await this.prisma.daily_tasks.create({
+      data: {
+        internship_id: internship.id,
+        description: taskData.description || taskData.task_description,
+        task_date: new Date(taskData.task_date || Date.now()),
+        status: taskData.status || 'pending',
+        expected_outcome: taskData.expected_outcome,
+        learning_objective: taskData.learning_objective,
+      },
+    });
+
+    return task;
+  }
+
+  /**
+   * Update a student's task
+   */
+  async updateStudentTask(userId: number, taskId: number, taskData: any) {
+    const student = await this.prisma.students.findFirst({ 
+      where: { user_id: userId } 
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    // Verify the task belongs to this student
+    const existingTask = await this.prisma.daily_tasks.findFirst({
+      where: {
+        id: taskId,
+        internships: { student_id: student.id },
+      },
+    });
+
+    if (!existingTask) {
+      throw new NotFoundException('Task not found or does not belong to this student');
+    }
+
+    const updatedTask = await this.prisma.daily_tasks.update({
+      where: { id: taskId },
+      data: {
+        description: taskData.description || taskData.task_description,
+        status: taskData.status,
+        expected_outcome: taskData.expected_outcome,
+        learning_objective: taskData.learning_objective,
+      },
+    });
+
+    return updatedTask;
+  }
+
+  /**
+   * Delete a student's task
+   */
+  async deleteStudentTask(userId: number, taskId: number) {
+    const student = await this.prisma.students.findFirst({ 
+      where: { user_id: userId } 
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    // Verify the task belongs to this student
+    const existingTask = await this.prisma.daily_tasks.findFirst({
+      where: {
+        id: taskId,
+        internships: { student_id: student.id },
+      },
+    });
+
+    if (!existingTask) {
+      throw new NotFoundException('Task not found or does not belong to this student');
+    }
+
+    await this.prisma.daily_tasks.delete({
+      where: { id: taskId },
+    });
+
+    return { success: true, message: 'Task deleted successfully' };
+  }
+
+  /**
+   * Get student's reports
+   */
+  async getStudentReports(userId: number, filters: { status?: string; date?: string }) {
+    const student = await this.prisma.students.findFirst({ 
+      where: { user_id: userId } 
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    const whereClause: any = {
+      internships: { student_id: student.id },
+    };
+
+    if (filters.status) {
+      whereClause.status = filters.status;
+    }
+
+    if (filters.date) {
+      const date = new Date(filters.date);
+      const nextDay = new Date(date);
+      nextDay.setDate(date.getDate() + 1);
+      
+      whereClause.report_date = {
+        gte: date,
+        lt: nextDay,
+      };
+    }
+
+    const reports = await this.prisma.daily_reports.findMany({
+      where: whereClause,
+      orderBy: { submission_timestamp: 'desc' },
+    });
+
+    return {
+      reports,
+      total: reports.length,
+    };
+  }
+
+  /**
+   * Create a new report for student
+   */
+  async createStudentReport(userId: number, reportData: any) {
+    const student = await this.prisma.students.findFirst({ 
+      where: { user_id: userId } 
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    const internship = await this.getMyActiveInternship(userId);
+    if (!internship) {
+      throw new BadRequestException('No active internship found');
+    }
+
+    const report = await this.prisma.daily_reports.create({
+      data: {
+        internship_id: internship.id,
+        report_date: new Date(reportData.report_date || Date.now()),
+        summary_of_work: reportData.summary_of_work || reportData.activities_performed,
+        status: reportData.status || 'pending_review',
+      },
+    });
+
+    return report;
+  }
+
+  /**
+   * Update a student's report
+   */
+  async updateStudentReport(userId: number, reportId: number, reportData: any) {
+    const student = await this.prisma.students.findFirst({ 
+      where: { user_id: userId } 
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    // Verify the report belongs to this student
+    const existingReport = await this.prisma.daily_reports.findFirst({
+      where: {
+        id: reportId,
+        internships: { student_id: student.id },
+      },
+    });
+
+    if (!existingReport) {
+      throw new NotFoundException('Report not found or does not belong to this student');
+    }
+
+    const updatedReport = await this.prisma.daily_reports.update({
+      where: { id: reportId },
+      data: {
+        summary_of_work: reportData.summary_of_work || reportData.activities_performed,
+        status: reportData.status,
+      },
+    });
+
+    return updatedReport;
+  }
+
+  /**
+   * Delete a student's report
+   */
+  async deleteStudentReport(userId: number, reportId: number) {
+    const student = await this.prisma.students.findFirst({ 
+      where: { user_id: userId } 
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    // Verify the report belongs to this student
+    const existingReport = await this.prisma.daily_reports.findFirst({
+      where: {
+        id: reportId,
+        internships: { student_id: student.id },
+      },
+    });
+
+    if (!existingReport) {
+      throw new NotFoundException('Report not found or does not belong to this student');
+    }
+
+    await this.prisma.daily_reports.delete({
+      where: { id: reportId },
+    });
+
+    return { success: true, message: 'Report deleted successfully' };
+  }
 }
