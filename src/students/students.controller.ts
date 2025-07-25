@@ -25,7 +25,7 @@ import { Request } from 'express'; // Standard Express Request type
 import { AuthUser } from '../auth/interfaces/auth-user.interface'; // Your custom AuthUser interface
 import { CheckInDto } from './dto/check-in.dto';
 
-@Controller('api/students')
+@Controller('students')
 // Apply guards globally to the controller, then override with @Roles as needed
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class StudentsController {

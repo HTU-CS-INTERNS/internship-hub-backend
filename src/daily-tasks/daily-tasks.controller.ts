@@ -19,7 +19,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { AuthUser } from '../auth/interfaces/auth-user.interface';
 
-@Controller('api/internships/:internshipId/daily-tasks')
+@Controller('internships/:internshipId/daily-tasks')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class DailyTasksController {
   constructor(private readonly dailyTasksService: DailyTasksService) {}

@@ -11,7 +11,7 @@ import { SignupDto } from './dto/signup.dto'; // you need to create this file
 import { UsersService } from '../users/users.service';
 import * as bcrypt from 'bcrypt';
 
-@Controller('api/auth')
+@Controller('auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,

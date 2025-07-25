@@ -21,7 +21,7 @@ import { Roles } from '../auth/roles.decorator';
 import { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { Request } from 'express'; // Ensure Request is imported for @Req() type hinting
 
-@Controller('api/internships')
+@Controller('internships')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class InternshipsController {
   constructor(private readonly internshipService: InternshipsService) {}
@@ -80,6 +80,7 @@ export class InternshipsController {
     @Body() dto: SubmitInternshipDto
   ) {
     const student = await this.internshipService.getStudentByUserId(req.user.id);
+    console.log('Controller received:', { studentId: student.id, dto });
     return this.internshipService.submitInternshipForApproval(student.id, dto);
   }
 

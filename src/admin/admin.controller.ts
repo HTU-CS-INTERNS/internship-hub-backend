@@ -1,8 +1,21 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards, Req } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt.auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { AdminService } from './admin.service';
+import { Request } from 'express';
+import { CreateFacultyDto } from '../faculties/dto/create-faculty.dto';
+import { CreateDepartmentDto } from '../departments/dto/create-department.dto';
+
+interface PendingStudentData {
+  student_id_number: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  faculty_id: number;
+  department_id: number;
+  program_of_study?: string;
+}
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -28,21 +41,6 @@ export class AdminController {
     return this.adminService.getAllUsers(query);
   }
 
-  @Post('users')
-  createUser(@Body() userData: any) {
-    return this.adminService.createUser(userData);
-  }
-
-  @Put('users/:id')
-  updateUser(@Param('id') id: string, @Body() userData: any) {
-    return this.adminService.updateUser(+id, userData);
-  }
-
-  @Delete('users/:id')
-  deleteUser(@Param('id') id: string) {
-    return this.adminService.deleteUser(+id);
-  }
-
   // Faculty Management
   @Get('faculties')
   getFaculties() {
@@ -50,9 +48,9 @@ export class AdminController {
   }
 
   @Post('faculties')
-  createFaculty(@Body() facultyData: any) {
-    return this.adminService.createFaculty(facultyData);
-  }
+createFaculty(@Body() facultyData: CreateFacultyDto) {
+  return this.adminService.createFaculty(facultyData);
+}
 
   @Put('faculties/:id')
   updateFaculty(@Param('id') id: string, @Body() facultyData: any) {
@@ -71,7 +69,7 @@ export class AdminController {
   }
 
   @Post('departments')
-  createDepartment(@Body() departmentData: any) {
+  createDepartment(@Body() departmentData: CreateDepartmentDto) {
     return this.adminService.createDepartment(departmentData);
   }
 
@@ -98,14 +96,22 @@ export class AdminController {
     return this.adminService.getStudents(query);
   }
 
-  @Put('students/:id')
-  updateStudent(@Param('id') id: string, @Body() studentData: any) {
-    return this.adminService.updateStudent(+id, studentData);
-  }
-
   @Get('students/pending')
   getPendingStudents() {
     return this.adminService.getPendingStudents();
+  }
+
+  // Bulk Student Operations - using the correct method name
+  @Post('students/pending/bulk')
+  @UseGuards(JwtAuthGuard)
+  async bulkCreatePendingStudents(
+    @Body() body: { students: PendingStudentData[] },
+    @Req() req: Request & { user: any }
+  ) {
+    return this.adminService.bulkCreatePendingStudents(
+      body.students, 
+      req.user.id // Pass the admin ID from JWT
+    );
   }
 
   // Company Management
@@ -117,21 +123,6 @@ export class AdminController {
     limit?: string;
   }) {
     return this.adminService.getCompanies(query);
-  }
-
-  @Post('companies')
-  createCompany(@Body() companyData: any) {
-    return this.adminService.createCompany(companyData);
-  }
-
-  @Put('companies/:id')
-  updateCompany(@Param('id') id: string, @Body() companyData: any) {
-    return this.adminService.updateCompany(+id, companyData);
-  }
-
-  @Delete('companies/:id')
-  deleteCompany(@Param('id') id: string) {
-    return this.adminService.deleteCompany(+id);
   }
 
   // System Management
@@ -203,5 +194,21 @@ export class AdminController {
   @Put('abuse-reports/:id/status')
   updateAbuseReportStatus(@Param('id') id: string, @Body() data: { status: string }) {
     return this.adminService.updateAbuseReportStatus(+id, data.status);
+  }
+
+  // User Management Endpoints
+  @Post('users')
+  createUser(@Body() userData: any) {
+    return this.adminService.createUser(userData);
+  }
+
+  @Put('users/:id')
+  updateUser(@Param('id') id: string, @Body() userData: any) {
+    return this.adminService.updateUser(+id, userData);
+  }
+
+  @Delete('users/:id')
+  deleteUser(@Param('id') id: string) {
+    return this.adminService.deleteUser(+id);
   }
 }

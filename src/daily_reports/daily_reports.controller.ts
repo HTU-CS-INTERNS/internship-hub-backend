@@ -20,7 +20,7 @@ import { RejectReportDto } from './dto/reject-report.dto';
 import { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { Request } from 'express';
 
-@Controller('api/internships/:internshipId/daily-reports')
+@Controller('internships/:internshipId/daily-reports')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class DailyReportsController {
   constructor(private readonly service: DailyReportsService) {}

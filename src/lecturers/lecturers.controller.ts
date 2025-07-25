@@ -18,7 +18,7 @@ import { AssignStudentDto } from './dto/assign-student.dto';
 import { Request } from 'express';
 import { AuthUser } from '../auth/interfaces/auth-user.interface';
 
-@Controller('api/lecturers')
+@Controller('lecturers')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class LecturersController {
   constructor(private readonly lecturersService: LecturersService) {}

@@ -16,7 +16,7 @@ import { JwtAuthGuard } from '../auth/jwt.auth.guard'; // Auth guard for route p
 import { RolesGuard } from '../auth/roles.guard'; // Role-based access control
 import { Roles } from '../auth/roles.decorator'; // Custom @Roles decorator
 
-@Controller('api/faculties') // Base route for faculties API
+@Controller('faculties') // Base route for faculties API
 export class FacultiesController {
   constructor(private readonly facultiesService: FacultiesService) {}
 

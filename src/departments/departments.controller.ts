@@ -16,7 +16,7 @@ import { JwtAuthGuard } from '../auth/jwt.auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 
-@Controller('api/departments')
+@Controller('departments')
 @UseGuards(JwtAuthGuard)
 export class DepartmentsController {
   constructor(private readonly service: DepartmentsService) {}

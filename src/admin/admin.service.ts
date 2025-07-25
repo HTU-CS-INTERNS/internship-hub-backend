@@ -1,5 +1,16 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { CreateFacultyDto } from '../faculties/dto/create-faculty.dto';
+
+interface PendingStudentData {
+  student_id_number: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  faculty_id: number;
+  department_id: number;
+  program_of_study?: string;
+}
 
 @Injectable()
 export class AdminService {
@@ -88,79 +99,66 @@ export class AdminService {
     };
   }
 
-  async createUser(userData: any) {
-    return this.prisma.users.create({
-      data: userData
-    });
-  }
-
-  async updateUser(id: number, userData: any) {
-    const user = await this.prisma.users.findUnique({ where: { id } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    return this.prisma.users.update({
-      where: { id },
-      data: userData
-    });
-  }
-
-  async deleteUser(id: number) {
-    const user = await this.prisma.users.findUnique({ where: { id } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    return this.prisma.users.delete({ where: { id } });
-  }
-
   // Faculty Management
-  async getFaculties() {
-    return this.prisma.faculties.findMany({
-      include: {
-        _count: {
-          select: {
-            students: true
-          }
+ // Faculty Management
+async getFaculties() {
+  return this.prisma.faculties.findMany({
+    include: {
+      _count: {
+        select: {
+          students: true
         }
-      },
-      orderBy: { name: 'asc' }
-    });
+      }
+    },
+    orderBy: { name: 'asc' }
+  });
+}
+
+async createFaculty(facultyData: CreateFacultyDto) {
+  // Validate faculty name is unique
+  const existingFaculty = await this.prisma.faculties.findFirst({
+    where: { name: facultyData.name }
+  });
+  
+  if (existingFaculty) {
+    throw new BadRequestException('Faculty with this name already exists');
   }
 
-  async createFaculty(facultyData: any) {
-    return this.prisma.faculties.create({
-      data: facultyData
-    });
-  }
-
-  async updateFaculty(id: number, facultyData: any) {
-    const faculty = await this.prisma.faculties.findUnique({ where: { id } });
-    if (!faculty) {
-      throw new NotFoundException('Faculty not found');
+  return this.prisma.faculties.create({
+    data: {
+      name: facultyData.name
     }
+  });
+}
 
-    return this.prisma.faculties.update({
-      where: { id },
-      data: facultyData
-    });
+async updateFaculty(id: number, facultyData: Partial<CreateFacultyDto>) {
+  const faculty = await this.prisma.faculties.findUnique({ where: { id } });
+  if (!faculty) {
+    throw new NotFoundException('Faculty not found');
   }
 
-  async deleteFaculty(id: number) {
-    const faculty = await this.prisma.faculties.findUnique({ where: { id } });
-    if (!faculty) {
-      throw new NotFoundException('Faculty not found');
-    }
+  return this.prisma.faculties.update({
+    where: { id },
+    data: facultyData
+  });
+}
 
-    // Check if faculty has departments
-    const departmentCount = await this.prisma.departments.count({ where: { faculty_id: id } });
-    if (departmentCount > 0) {
-      throw new BadRequestException('Cannot delete faculty with existing departments');
-    }
-
-    return this.prisma.faculties.delete({ where: { id } });
+async deleteFaculty(id: number) {
+  const faculty = await this.prisma.faculties.findUnique({ where: { id } });
+  if (!faculty) {
+    throw new NotFoundException('Faculty not found');
   }
+
+  const departmentCount = await this.prisma.departments.count({ 
+    where: { faculty_id: id } 
+  });
+  
+  if (departmentCount > 0) {
+    throw new BadRequestException('Cannot delete faculty with existing departments');
+  }
+
+  return this.prisma.faculties.delete({ where: { id } });
+}
 
   // Department Management
   async getDepartments(facultyId?: number) {
@@ -181,8 +179,29 @@ export class AdminService {
   }
 
   async createDepartment(departmentData: any) {
+    const { faculty_id, facultyId, ...rest } = departmentData;
+    
+    // Handle both camelCase (facultyId) and snake_case (faculty_id) inputs
+    const finalFacultyId = faculty_id || facultyId;
+    
+    if (!finalFacultyId) {
+      throw new BadRequestException('Faculty ID is required');
+    }
+    
+    // Validate that the faculty exists
+    const faculty = await this.prisma.faculties.findUnique({
+      where: { id: parseInt(finalFacultyId, 10) }
+    });
+    
+    if (!faculty) {
+      throw new BadRequestException('Faculty not found');
+    }
+    
     return this.prisma.departments.create({
-      data: departmentData
+      data: {
+        ...rest,
+        faculty_id: parseInt(finalFacultyId, 10) // Use correct field name
+      }
     });
   }
 
@@ -192,9 +211,18 @@ export class AdminService {
       throw new NotFoundException('Department not found');
     }
 
+    // Map camelCase to snake_case for database
+    const { facultyId, ...rest } = departmentData;
+    const updateData = { ...rest };
+    
+    // Only add faculty_id if facultyId was provided
+    if (facultyId !== undefined) {
+      updateData.faculty_id = parseInt(facultyId, 10);
+    }
+
     return this.prisma.departments.update({
       where: { id },
-      data: departmentData
+      data: updateData
     });
   }
 
@@ -204,7 +232,6 @@ export class AdminService {
       throw new NotFoundException('Department not found');
     }
 
-    // Check if department has students
     const studentCount = await this.prisma.students.count({ where: { department_id: id } });
     if (studentCount > 0) {
       throw new BadRequestException('Cannot delete department with existing students');
@@ -276,27 +303,174 @@ export class AdminService {
     };
   }
 
-  async updateStudent(id: number, studentData: any) {
-    const student = await this.prisma.students.findUnique({ where: { id } });
-    if (!student) {
-      throw new NotFoundException('Student not found');
+  // Pending Student Management
+  async getPendingStudents() {
+    return this.prisma.pending_students.findMany({
+      include: {
+        faculties: true,
+        departments: true,
+        admin: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true
+          }
+        }
+      },
+      orderBy: { created_at: 'desc' }
+    });
+  }
+
+  async createPendingStudent(studentData: PendingStudentData, adminId: number) {
+    // Validate faculty exists
+    const faculty = await this.prisma.faculties.findUnique({
+      where: { id: studentData.faculty_id }
+    });
+    if (!faculty) {
+      throw new NotFoundException('Faculty not found');
     }
 
-    return this.prisma.students.update({
-      where: { id },
-      data: studentData,
-      include: {
-        users: true,
-        faculties: true,
-        departments: true
+    // Validate department exists and belongs to faculty
+    const department = await this.prisma.departments.findUnique({
+      where: { id: studentData.department_id }
+    });
+    if (!department) {
+      throw new NotFoundException('Department not found');
+    }
+    if (department.faculty_id !== studentData.faculty_id) {
+      throw new BadRequestException('Department does not belong to the specified faculty');
+    }
+
+    // Check for existing student ID
+    const existingStudent = await this.prisma.students.findUnique({
+      where: { student_id_number: studentData.student_id_number }
+    });
+    const existingPending = await this.prisma.pending_students.findUnique({
+      where: { student_id_number: studentData.student_id_number }
+    });
+
+    if (existingStudent || existingPending) {
+      throw new BadRequestException('Student ID already exists');
+    }
+
+    // Check for existing email
+    const existingUser = await this.prisma.users.findUnique({
+      where: { email: studentData.email }
+    });
+    const existingPendingEmail = await this.prisma.pending_students.findFirst({
+      where: { email: studentData.email }
+    });
+
+    if (existingUser || existingPendingEmail) {
+      throw new BadRequestException('Email already exists');
+    }
+
+    // Create pending student record
+    return this.prisma.pending_students.create({
+      data: {
+        ...studentData,
+        added_by_admin_id: adminId,
+        program_of_study: studentData.program_of_study || null,
+        is_verified: false
       }
     });
   }
 
-  async getPendingStudents() {
-    return this.prisma.pending_students.findMany({
-      orderBy: { created_at: 'desc' }
+  async bulkCreatePendingStudents(students: PendingStudentData[], adminId: number) {
+    const errors: string[] = [];
+    const validStudents: PendingStudentData[] = [];
+
+    for (const [index, student] of students.entries()) {
+      try {
+        // Check for existing student ID
+        const [existingPending, existingStudent] = await Promise.all([
+          this.prisma.pending_students.findUnique({
+            where: { student_id_number: student.student_id_number }
+          }),
+          this.prisma.students.findUnique({
+            where: { student_id_number: student.student_id_number }
+          })
+        ]);
+
+        if (existingPending || existingStudent) {
+          throw new Error(`Student ID ${student.student_id_number} already exists`);
+        }
+
+        // Check for existing email
+        const [existingPendingEmail, existingUser] = await Promise.all([
+          this.prisma.pending_students.findFirst({
+            where: { email: student.email }
+          }),
+          this.prisma.users.findUnique({
+            where: { email: student.email }
+          })
+        ]);
+
+        if (existingPendingEmail || existingUser) {
+          throw new Error(`Email ${student.email} already exists`);
+        }
+
+        // Validate faculty and department
+        const [faculty, department] = await Promise.all([
+          this.prisma.faculties.findUnique({
+            where: { id: student.faculty_id }
+          }),
+          this.prisma.departments.findUnique({
+            where: { id: student.department_id }
+          })
+        ]);
+
+        if (!faculty) throw new Error(`Faculty ID ${student.faculty_id} not found`);
+        if (!department) throw new Error(`Department ID ${student.department_id} not found`);
+        if (department.faculty_id !== student.faculty_id) {
+          throw new Error(`Department doesn't belong to Faculty`);
+        }
+
+        validStudents.push(student);
+      } catch (error) {
+        errors.push(`Row ${index + 1}: ${error.message}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new BadRequestException({
+        message: 'Some students failed validation',
+        errors,
+        validCount: validStudents.length,
+        errorCount: errors.length
+      });
+    }
+
+    // Create all valid pending students
+    const createdStudents = await this.prisma.$transaction(
+      validStudents.map(student => 
+        this.prisma.pending_students.create({
+          data: {
+            ...student,
+            added_by_admin_id: adminId,
+            program_of_study: student.program_of_study || null,
+            is_verified: false
+          }
+        })
+      )
+    );
+
+    return {
+      success: true,
+      count: createdStudents.length,
+      students: createdStudents
+    };
+  }
+
+  async deletePendingStudent(id: number) {
+    const pendingStudent = await this.prisma.pending_students.findUnique({ 
+      where: { id }
     });
+    if (!pendingStudent) {
+      throw new NotFoundException('Pending student not found');
+    }
+
+    return this.prisma.pending_students.delete({ where: { id } });
   }
 
   // Company Management
@@ -359,44 +533,7 @@ export class AdminService {
     };
   }
 
-  async createCompany(companyData: any) {
-    return this.prisma.companies.create({
-      data: companyData
-    });
-  }
-
-  async updateCompany(id: number, companyData: any) {
-    const company = await this.prisma.companies.findUnique({ where: { id } });
-    if (!company) {
-      throw new NotFoundException('Company not found');
-    }
-
-    return this.prisma.companies.update({
-      where: { id },
-      data: companyData
-    });
-  }
-
-  async deleteCompany(id: number) {
-    const company = await this.prisma.companies.findUnique({ where: { id } });
-    if (!company) {
-      throw new NotFoundException('Company not found');
-    }
-
-    // Check if company has active internships
-    const activeInternships = await this.prisma.internships.count({ 
-      where: { 
-        company_id: id,
-        status: 'active'
-      } 
-    });
-    
-    if (activeInternships > 0) {
-      throw new BadRequestException('Cannot delete company with active internships');
-    }
-
-    return this.prisma.companies.delete({ where: { id } });
-  }
+  
 
   // System Management
   async getSystemStats() {
@@ -635,4 +772,97 @@ export class AdminService {
       updated_at: new Date().toISOString()
     };
   }
+
+  // User Management Methods
+  async createUser(userData: any) {
+    const { email, password, ...rest } = userData;
+    
+    // Check if user already exists
+    const existingUser = await this.prisma.users.findUnique({
+      where: { email }
+    });
+    
+    if (existingUser) {
+      throw new BadRequestException('User with this email already exists');
+    }
+
+    // Hash password
+    const bcrypt = require('bcrypt');
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    return this.prisma.users.create({
+      data: {
+        ...rest,
+        email,
+        password: hashedPassword,
+        is_active: true, // Admin created users are auto-activated
+        created_at: new Date(),
+        update_at: new Date()
+      },
+      select: {
+        id: true,
+        email: true,
+        first_name: true,
+        last_name: true,
+        role: true,
+        is_active: true,
+        created_at: true,
+        update_at: true
+      }
+    });
+  }
+
+  async updateUser(id: number, userData: any) {
+    const user = await this.prisma.users.findUnique({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const { password, ...rest } = userData;
+    const updateData: any = { ...rest, update_at: new Date() };
+
+    // Hash new password if provided
+    if (password) {
+      const bcrypt = require('bcrypt');
+      updateData.password = await bcrypt.hash(password, 10);
+    }
+
+    return this.prisma.users.update({
+      where: { id },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        first_name: true,
+        last_name: true,
+        role: true,
+        is_active: true,
+        created_at: true,
+        update_at: true
+      }
+    });
+  }
+
+  async deleteUser(id: number) {
+    const user = await this.prisma.users.findUnique({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Check if user has related records that would prevent deletion
+    const [studentRecord, lecturerRecord, supervisorRecord] = await Promise.all([
+      this.prisma.students.findFirst({ where: { user_id: id } }),
+      this.prisma.lecturers.findFirst({ where: { user_id: id } }),
+      this.prisma.company_supervisors.findFirst({ where: { user_id: id } })
+    ]);
+
+    if (studentRecord || lecturerRecord || supervisorRecord) {
+      throw new BadRequestException('Cannot delete user with existing student, lecturer, or supervisor records');
+    }
+
+    await this.prisma.users.delete({ where: { id } });
+    return { message: 'User deleted successfully' };
+  }
+
+
 }

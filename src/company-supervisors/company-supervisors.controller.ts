@@ -19,7 +19,7 @@ import { UpdateMyCompanySupervisorProfileDto } from './dto/update-my-profile.dto
 import { Request } from 'express';
 import { AuthUser } from '../auth/interfaces/auth-user.interface';
 
-@Controller('api/company-supervisors')
+@Controller('company-supervisors')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class CompanySupervisorsController {
   constructor(

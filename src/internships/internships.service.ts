@@ -134,6 +134,9 @@ export class InternshipsService {
 
   // Student submits internship for approval
   async submitInternshipForApproval(studentId: number, dto: SubmitInternshipDto) {
+     console.log('Student ID:', studentId); // Add this line
+     console.log('Submission data:', dto);  // Add this line
+
     // Check if student already has a pending or approved internship
     const existingSubmission = await this.prisma.pending_internships.findUnique({
       where: { student_id: studentId },

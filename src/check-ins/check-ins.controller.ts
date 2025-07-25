@@ -7,7 +7,7 @@ import { CheckInDto } from '../students/dto/check-in.dto';
 import { Request } from 'express';
 import { AuthUser } from '../auth/interfaces/auth-user.interface';
 
-@Controller('api/check-ins')
+@Controller('check-ins')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class CheckInsController {
   constructor(private readonly checkInsService: CheckInsService) {}
