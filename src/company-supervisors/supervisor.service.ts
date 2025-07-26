@@ -432,17 +432,22 @@ export class SupervisorService {
     const supervisor = await this.getSupervisorByUserId(userId);
     await this.verifyInternAccess(supervisor.id, internshipId);
 
-    // Get recent task and check-in activities (no reports for supervisors)
+    // Ensure limit is a number
+    const limit = typeof filters.limit === 'string' 
+      ? parseInt(filters.limit, 10) 
+      : Number(filters.limit) || 15;
+
+    // Get recent task and check-in activities
     const [tasks, checkIns] = await Promise.all([
       this.prisma.daily_tasks.findMany({
         where: { internship_id: internshipId },
         orderBy: { updated_at: 'desc' },
-        take: filters.limit || 15,
+        take: limit, // Now using the properly converted number
       }),
       this.prisma.location_check_ins.findMany({
         where: { internship_id: internshipId },
         orderBy: { check_in_timestamp: 'desc' },
-        take: filters.limit || 15,
+        take: limit, // Now using the properly converted number
       }),
     ]);
 
@@ -464,8 +469,13 @@ export class SupervisorService {
       })),
     ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-    return activities.slice(0, filters.limit || 20);
-  }
+    // Ensure final limit is a number
+    const finalLimit = typeof filters.limit === 'string' 
+      ? parseInt(filters.limit, 10) 
+      : Number(filters.limit) || 20;
+    
+    return activities.slice(0, finalLimit);
+}
 
   // Task Evaluation & Assessment
   async evaluateTask(userId: number, taskId: number, evaluationData: {
