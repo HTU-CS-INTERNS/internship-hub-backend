@@ -12,9 +12,10 @@ async function bootstrap() {
   app.setGlobalPrefix('api'); // <--- ADD THIS LINE!
 
   // --- ADD THIS CONSOLE.LOG ---
-  console.log(`Backend is loading FRONTEND_URL as: ${process.env.FRONTEND_URL}`);
+  console.log(
+    `Backend is loading FRONTEND_URL as: ${process.env.FRONTEND_URL}`,
+  );
   // --- END CONSOLE.LOG ---
-
 
   // Enable CORS for frontend
   app.enableCors({
